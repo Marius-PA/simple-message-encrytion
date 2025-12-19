@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives.ciphers import (
     Cipher, algorithms, modes
 )
 
-f
+
 def ed25519_keypair():
 
     # --- PRIVATE KEY (raw bytes) ---
