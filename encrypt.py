@@ -1,57 +1,102 @@
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+import os
+from cryptography.hazmat.primitives.ciphers import (
+    Cipher, algorithms, modes
+)
 
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+def ed25519_keypair():
 
+    # --- PRIVATE KEY (raw bytes) ---
+    private_key = ed25519.Ed25519PrivateKey.generate()
 
-# Generate a private key for use in the exchange.
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
 
-private_key = X25519PrivateKey.generate()
+    # --- PUBLIC KEY (PEM, text-safe) ---
+    public_key = private_key.public_key()
+    public_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    
+    private_text = private_bytes.decode("utf-8")
+    public_text = public_bytes.decode("utf-8")
 
-# In a real handshake the peer_public_key will be received from the
+    return {
+        "private": private_bytes,
+        "public": public_bytes,
+        "private_text": private_text,
+        "public_text": public_text
+    }
 
-# other party. For this example we'll generate another private key and
+def encrypt(key, plaintext, associated_data):
+    # Generate a random 96-bit IV.
+    iv = os.urandom(12)
 
-# get a public key from that. Note that in a DH handshake both peers
+    # Construct an AES-GCM Cipher object with the given key and a
+    # randomly generated IV.
+    encryptor = Cipher(
+        algorithms.AES(key),
+        modes.GCM(iv),
+    ).encryptor()
 
-# must agree on a common set of parameters.
+    # associated_data will be authenticated but not encrypted,
+    # it must also be passed in on decryption.
+    encryptor.authenticate_additional_data(associated_data)
 
-peer_public_key = X25519PrivateKey.generate().public_key()
+    # Encrypt the plaintext and get the associated ciphertext.
+    # GCM does not require padding.
+    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
 
-shared_key = private_key.exchange(peer_public_key)
-f
-# Perform key derivation.
+    return (iv, ciphertext, encryptor.tag)
 
-derived_key = HKDF(
+def decrypt(key, associated_data, iv, ciphertext, tag):
+    # Construct a Cipher object, with the key, iv, and additionally the
+    # GCM tag used for authenticating the message.
+    decryptor = Cipher(
+        algorithms.AES(key),
+        modes.GCM(iv, tag),
+    ).decryptor()
 
-    algorithm=hashes.SHA256(),
+    # We put associated_data back in or the tag will fail to verify
+    # when we finalize the decryptor.
+    decryptor.authenticate_additional_data(associated_data)
 
-    length=32,
+    # Decryption gets us the authenticated plaintext.
+    # If the tag does not match an InvalidTag exception will be raised.
+    return decryptor.update(ciphertext) + decryptor.finalize()
 
-    salt=None,
+key = os.urandom(32)
+iv = os.urandom(16)
 
-    info=b'handshake data',
+cipher = Cipher(
+    algorithms.AES(key),
+    modes.GCM(iv)
+)
 
-).derive(shared_key)
+encryptor = cipher.encryptor()
+ct = encryptor.update(b"a secret message") + encryptor.finalize()
+tag = encryptor.tag
 
-print(derived_key.hex())
-# For the next handshake we MUST generate another private key.
+print(ct)
 
-private_key_2 = X25519PrivateKey.generate()
+print(encryptor)
 
-peer_public_key_2 = X25519PrivateKey.generate().public_key()
+iv, ciphertext, tag = encrypt(
+    key,
+    b"a secret message!",
+    b"authenticated but not encrypted payload"
+)
 
-shared_key_2 = private_key_2.exchange(peer_public_key_2)
-
-derived_key_2 = HKDF(
-
-    algorithm=hashes.SHA256(),
-
-    length=32,
-
-    salt=None,
-
-    info=b'handshake data',
-
-).derive(shared_key_2)
+print(decrypt(
+    key,
+    b"authenticated but not encrypted payload",
+    iv,
+    ciphertext,
+    tag
+))
