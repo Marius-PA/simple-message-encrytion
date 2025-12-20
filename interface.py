@@ -1,23 +1,23 @@
-from tkinter import *
-from tkinter import ttk
-root = Tk()
+from encrypt import *
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 
+def encrypt_message():
+    message = simpledialog.askstring("Encrypt", "Enter message to encrypt:")
+    if message:
+        encrypted = encrypt(message)  # your encryption function
+        messagebox.showinfo("Encrypted", encrypted)
 
-def answer():
-    print("Button clicked!")
-    
-label = ttk.Label(root, text="Hello World!")
-label.pack(pady=20)
+def decrypt_message():
+    ciphertext = simpledialog.askstring("Decrypt", "Enter message to decrypt:")
+    if ciphertext:
+        plaintext = decrypt(ciphertext)  # your decryption function
+        messagebox.showinfo("Decrypted", plaintext)
 
-entry = ttk.Entry(root, width=20)
-entry.pack(pady=20)
+root = tk.Tk()
+root.title("Encrypt/Decrypt App")
 
-Button = ttk.Button(root, text="Submit", command=answer)
-Button.pack(pady=20)
-
-Quit = ttk.Button(root, text="Quit", command=root.destroy)
-Quit.pack(pady=20)
-
-
+tk.Button(root, text="Encrypt", command=encrypt_message).pack(pady=10)
+tk.Button(root, text="Decrypt", command=decrypt_message).pack(pady=10)
 
 root.mainloop()
