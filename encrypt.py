@@ -37,14 +37,14 @@ def generate_ed25519_keypair(name):
 
     with open(f"{name}_ed25519_public.json", "w", encoding="utf-8") as f:
         json.dump({"algorithm": data["algorithm"], "name": data["name"], "public_key": data["keys"]["public"]}, f, indent=2)
-generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
+#generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
 
 def generate_aes_key(name):
     data = {
         "algorithm": "AES-256-GCM",
         "name": str(name),
-        "key": os.urandom(32).hex(),
-        "iv": os.urandom(16).hex()
+        "key": base64.b64encode(os.urandom(32)).decode("utf-8"),
+        "iv": base64.b64encode(os.urandom(16)).decode("utf-8") 
     }
 
     with open(f"{name}_aes256gcm_key.json", "w", encoding="utf-8") as f:
@@ -54,7 +54,7 @@ def generate_aes_key(name):
 def retrieve_aes_key(name):
     with open(f"{name}_aes256gcm_key.json", "r", encoding="utf-8") as f:
         data = json.load(f)
-    return bytes.fromhex(data["key"])
+    return base64.b64decode(data["key"])
 
 def retrieve_ed25519_private_key(name):
     with open(f"{name}_ed25519_private.json", "r", encoding="utf-8") as f:
@@ -77,7 +77,7 @@ def retrieve_ciphertext(name):
 
     return (iv, ciphertext, tag, associated_data)
 
-def encrypt(name ,key, plaintext, associated_data):
+def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
     # Generate a random 96-bit IV.
     iv = os.urandom(12)
 
@@ -106,7 +106,7 @@ def encrypt(name ,key, plaintext, associated_data):
 
     return (iv, ciphertext, encryptor.tag)
 
-def decrypt(key):
+def decrypt(key:bytes):
 
     iv, ciphertext, tag, associated_data = retrieve_ciphertext(name = input("Enter the name of the encrypted message to retrieve: "))
 
