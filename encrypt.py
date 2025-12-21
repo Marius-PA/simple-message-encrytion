@@ -5,6 +5,52 @@ import os, json, base64
 from cryptography.hazmat.primitives.ciphers import (
     Cipher, algorithms, modes
 )
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+#x25519 keypair generation and storage
+
+def generate_x25519_keypair(name):
+    private_key = X25519PrivateKey.generate()
+    public_key = private_key.public_key()
+
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    public_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw
+    )
+
+    with open(f"{name}_x25519_private.json", "w") as f:
+        json.dump({"private": base64.b64encode(private_bytes).decode()}, f)
+
+    with open(f"{name}_x25519_public.json", "w") as f:
+        json.dump({"public": base64.b64encode(public_bytes).decode()}, f)
+
+generate_x25519_keypair(name = input("Enter a name for the x25519 key: "))
+
+def load_x25519_private(name):
+    with open(f"{name}_x25519_private.json") as f:
+        data = json.load(f)
+    with open(f"{name}_x25519_public.json") as f:
+        pub_data = json.load(f)
+    return {"private": X25519PrivateKey.from_private_bytes(
+        base64.b64decode(data["private"])
+    ),
+            "public": X25519PublicKey.from_public_bytes(
+                base64.b64decode(pub_data["public"])
+            )}
+
+def load_x25519_public_from_bytes(pub_b64):
+    return X25519PublicKey.from_public_bytes(
+        base64.b64decode(pub_b64)
+    )
+
 
 def generate_ed25519_keypair(name):
 
@@ -40,7 +86,6 @@ def generate_ed25519_keypair(name):
         json.dump({"algorithm": data["algorithm"], "name": data["name"], "public_key": data["keys"]["public"]}, f, indent=2)
 #generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
 
-
 def generate_aes_key(name):
     data = {
         "algorithm": "AES-256-GCM",
@@ -71,9 +116,7 @@ def retrieve_ed25519_private_key(name):
 def retrieve_ed25519_public_key(name):
     with open(f"{name}_ed25519_public.json", "r", encoding="utf-8") as f:
         data = json.load(f)
-    return serialization.load_pem_public_key(
-        data["public_key"].encode("utf-8")
-    )
+    return data["public_key"]
 
 def retrieve_ciphertext(name, only_ciphertext=False):
     with open(f"{name}_encrypted_message.json", "r", encoding="utf-8") as f:
@@ -114,7 +157,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
         "tag": base64.b64encode(encryptor.tag).decode("utf-8"),
         "associated_data": base64.b64encode(associated_data).decode("utf-8"),
         "signature": base64.b64encode(signature).decode("utf-8"),
-        "singing_public_key": base64.b64encode(retrieve_ed25519_public_key(keyname)).decode("utf-8")
+        "singing_public_key": str(retrieve_ed25519_public_key(keyname))
     }
 
     with open(f"{name}_encrypted_message.json", "w", encoding="utf-8") as f:
@@ -140,14 +183,14 @@ def decrypt(key:bytes):
 
 
 
-iv, ciphertext, tag = encrypt(
+#encrypt(
     name = input("Enter a name for the encrypted message: "),
     key = retrieve_aes_key(name = input("Enter the name of the AES key to use for encryption: ")),
     plaintext = b"a secret message!",
     associated_data = b"authenticated but not encrypted payload"
-)
+#)
 
 
-print(decrypt(
+#print(decrypt(
     key = retrieve_aes_key(name = input("Enter the name of the AES key to use for decryption: ")),
-))
+#))
