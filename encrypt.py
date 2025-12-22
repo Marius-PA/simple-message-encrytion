@@ -9,9 +9,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-#abspath = os.path.abspath(__file__)
-#dname = os.path.dirname(abspath)
-#os.chdir(dname)
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
 
 folder = ("private_keys", "public_keys", "encrypted_messages", "decrypted_messages")
 for i in folder:
