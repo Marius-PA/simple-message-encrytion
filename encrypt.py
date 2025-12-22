@@ -92,6 +92,33 @@ def generate_ed25519_keypair(name) -> None:
     with open(f"{name}_ed25519_public.json", "w", encoding="utf-8") as f:
         json.dump({"algorithm": data["algorithm"], "name": data["name"], "public_key": data["keys"]["public"]}, f, indent=2)
 #generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
+# derive shared secret
+
+def derive_shared_secret(name:str, peer_public_key_bytes:bytes) -> None:
+    private_key = load_x25519(name = input("Enter the name of your x25519 private key :"))["private"]
+    peer_public_key = ed25519.Ed25519PublicKey.from_public_bytes(peer_public_key_bytes)
+    shared_key = private_key.exchange(peer_public_key)
+    # Perform key derivation.
+
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b'handshake data',
+    ).derive(shared_key)
+
+    data = {
+        "algorithm": "AES-256-GCM",
+        "name": str(name),
+        "secret_shared_key": base64.b64encode(derived_key).decode("utf-8")
+    }
+
+    with open(f"{name}_shared_key.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+
+# load stored keys and ciphertext
 
 def load_x25519(name) -> dict:
     result = {}
@@ -111,51 +138,29 @@ def load_x25519(name) -> dict:
 
     return result
 
-def load_ed25519(name) -> dict:
-    result = {}
-    try:
-        with open(f"{name}_ed25519_private.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-            result["private"] = data["private_key"]
-    except FileNotFoundError:
-        result["private"] = None
-    try:
-        with open(f"{name}_ed25519_public.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-            result["public"] = data["public_key"]
-    except FileNotFoundError:
-        result["public"] = None
-
-    return result
-
-# derive shared secret
-
-def derive_shared_secret(name:str, peer_public_key_bytes:bytes) -> None:
-    get_private_key = load_x25519(name = input("Enter the name of your x25519 private key :"))
-    private_key = get_private_key["private"]
-    peer_public_key = ed25519.Ed25519PublicKey.from_public_bytes(peer_public_key_bytes)
-    shared_key = private_key.exchange(peer_public_key)
-    # Perform key derivation.
-
-    derived_key = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b'handshake data',
-    ).derive(shared_key)
-
-    with open(f"{name}_shared_key.json", "w", encoding="utf-8") as f:
-        json.dump({"derived_key": base64.b64encode(derived_key).decode("utf-8")}, f, indent=2)
-
-
-# load stored keys and ciphertext
-
 def load_aes_key(name) -> bytes:
     with open(f"{name}_aes256gcm_key.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     return base64.b64decode(data["key"])
 
-def load_ciphertext(name, only_ciphertext=False):
+def load_ed25519(name) -> dict:
+    result = {}
+    try:
+        with open(f"{name}_ed25519_private.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            result["private"] = base64.b64decode(data["private_key"])
+    except FileNotFoundError:
+        result["private"] = None
+    try:
+        with open(f"{name}_ed25519_public.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            result["public"] = base64.b64decode(data["public_key"])
+    except FileNotFoundError:
+        result["public"] = None
+
+    return result
+
+def load_ciphertext(name, only_ciphertext=False) -> tuple:
     with open(f"{name}_encrypted_message.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -171,7 +176,7 @@ def load_ciphertext(name, only_ciphertext=False):
 
 # Encrypt and decrypt functions
 
-def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
+def encrypt(name:str, key:bytes, plaintext:str, associated_data:str) -> dict:
     iv = os.urandom(12)
     encryptor = Cipher(
         algorithms.AES(key),
@@ -202,7 +207,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
 
     return {"iv":iv, "ciphertext":ciphertext, "encryptor":encryptor.tag}
 
-def decrypt(key:bytes):
+def decrypt(key:bytes) -> str:
     iv, ciphertext, tag, associated_data = load_ciphertext(name = input("Enter the name of the encrypted message to retrieve: "), only_ciphertext=False)
 
     decryptor = Cipher(
