@@ -1,3 +1,4 @@
+from unittest import result
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -32,24 +33,25 @@ def generate_x25519_keypair(name):
     with open(f"{name}_x25519_public.json", "w") as f:
         json.dump({"public": base64.b64encode(public_bytes).decode()}, f)
 
-generate_x25519_keypair(name = input("Enter a name for the x25519 key: "))
+#generate_x25519_keypair(name = input("Enter a name for the x25519 key: "))
 
-def load_x25519_private(name):
-    with open(f"{name}_x25519_private.json") as f:
-        data = json.load(f)
-    with open(f"{name}_x25519_public.json") as f:
-        pub_data = json.load(f)
-    return {"private": X25519PrivateKey.from_private_bytes(
-        base64.b64decode(data["private"])
-    ),
-            "public": X25519PublicKey.from_public_bytes(
-                base64.b64decode(pub_data["public"])
-            )}
+def load_x25519(name):
+    result = {}
+    try:
+        with open(f"{name}_x25519_private.json") as f:
+            data = json.load(f)
+            result["private"] = base64.b64decode(data["private"])
+    except FileNotFoundError:
+        result["private"] = None
+        with open(f"{name}_x25519_public.json") as f:
+            pub_data = json.load(f)
+            result["public"] = base64.b64decode(pub_data["public"])
+    except FileNotFoundError:
+        result["public"] = None
+    return result
 
-def load_x25519_public_from_bytes(pub_b64):
-    return X25519PublicKey.from_public_bytes(
-        base64.b64decode(pub_b64)
-    )
+key = load_x25519(name = input("Enter the name of the x25519 key to load: "))
+print(key["public"])
 
 
 def generate_ed25519_keypair(name):
