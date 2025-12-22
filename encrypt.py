@@ -9,9 +9,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
+#abspath = os.path.abspath(__file__)
+#dname = os.path.dirname(abspath)
+#os.chdir(dname)
 
 folder = ("private_keys", "public_keys", "encrypted_messages", "decrypted_messages")
 for i in folder:
@@ -85,8 +85,7 @@ def generate_x25519_keypair(name) -> None:
 # derive shared secret
 
 def derive_shared_secret(name:str, peer_public_key_bytes:bytes) -> None:
-    private_key = load_x25519(name = input("Enter the name of your x25519 private key :"))["private"]
-    print(private_key)
+    private_key = load_x25519(name = input("Name of your x25519 private key :"))["private"]
     shared_key = private_key.exchange(peer_public_key_bytes)
     # Perform key derivation.
 
@@ -137,7 +136,6 @@ def load_ed25519(name) -> dict:
         with open(f"private_keys/{name}_ed25519_private.json", "r", encoding="utf-8") as f:
             data = json.load(f)
             private_bytes = data["private_key"].encode("utf-8")
-            print(private_bytes, type(private_bytes))
             result["private"] = serialization.load_pem_private_key(
                 private_bytes,
                 password=None
@@ -166,12 +164,12 @@ def load_ciphertext(name) -> tuple:
     iv = base64.b64decode(data["iv"])
     ciphertext = base64.b64decode(data["ciphertext"])
     tag = base64.b64decode(data["tag"])
-    associated_data = base64.b64decode(data["associated_data"])
+    #associated_data = base64.b64decode(data["associated_data"])
     signature = base64.b64decode(data["signature"])
     signing_public_key = serialization.load_pem_public_key(public_bytes)
     signing_public_key_str = data["signing_public_key"]
 
-    return (name, iv, ciphertext, tag, associated_data, signature, signing_public_key, signing_public_key_str)
+    return (name, iv, ciphertext, tag, signature, signing_public_key, signing_public_key_str)
 
 # find signer name locally
 
@@ -190,16 +188,16 @@ def find_signer_name_locally(pub_key_bytes: bytes) -> str:
 
 # Encrypt and decrypt functions
 
-def encrypt(name:str, key:bytes, plaintext:str, associated_data:str) -> dict:
+def encrypt(name:str, key:bytes, plaintext:str) -> dict:
     iv = os.urandom(12)
     encryptor = Cipher(
         algorithms.AES(key),
         modes.GCM(iv),
     ).encryptor()
 
-    keyname = input("Enter the name of the ed25519 key to sign the message: ")
+    keyname = input("Name of the ed25519 key to sign the message: ")
 
-    encryptor.authenticate_additional_data(associated_data)
+    #encryptor.authenticate_additional_data(associated_data)
 
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     a = load_ed25519(keyname)["private"]
@@ -211,7 +209,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str) -> dict:
         "iv": base64.b64encode(iv).decode("utf-8"),
         "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
         "tag": base64.b64encode(encryptor.tag).decode("utf-8"),
-        "associated_data": base64.b64encode(associated_data).decode("utf-8"),
+        #"associated_data": base64.b64encode(associated_data).decode("utf-8"),
         "signature": base64.b64encode(signature).decode("utf-8"),
         "signing_public_key": load_ed25519(keyname)["public_str"]
     }
@@ -222,7 +220,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str) -> dict:
     return {"iv":iv, "ciphertext":ciphertext, "encryptor":encryptor.tag}
 
 def decrypt(key:bytes) -> None:
-    name, iv, ciphertext, tag, associated_data, signature, signing_public_key, signing_public_key_str = load_ciphertext(name = input("Enter the name of the encrypted message to retrieve: "))
+    name, iv, ciphertext, tag, signature, signing_public_key, signing_public_key_str = load_ciphertext(name = input("Name of the encrypted message to retrieve: "))
 
     signing_public_key.verify(signature, ciphertext)
 
@@ -231,7 +229,7 @@ def decrypt(key:bytes) -> None:
         modes.GCM(iv, tag),
     ).decryptor()
 
-    decryptor.authenticate_additional_data(associated_data)
+    #decryptor.authenticate_additional_data(associated_data)
 
     plaintext_bytes = decryptor.update(ciphertext) + decryptor.finalize()
     plaintext_str = plaintext_bytes.decode("utf-8")
@@ -242,23 +240,4 @@ def decrypt(key:bytes) -> None:
     }
 
     with open(f"decrypted_messages/{name}_decrypted_message.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-#generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
-
-#generate_x25519_keypair(name = input("Enter a name for the x25519 key: "))
-
-#derive_shared_secret(
-#    name = input("Enter a name for the shared secret key: "),
-#    peer_public_key_bytes = load_x25519(name = input("Enter the name of the peer's x25519 public key: "))["public"]
-#)
-
-#encrypt(
-#    name = input("Enter a name for the encrypted message: "),
-#    key = load_aes_shared_key(name = input("Enter the name of the AES shared key for encryption: ")),
-#    plaintext = input("Enter a message to encrypt: ").encode("utf-8"),
-#    associated_data = b"authenticated but not encrypted payload"
-#)
-decrypt(
-    key = load_aes_shared_key(name = input("Enter the name of the AES key to use for decryption: ")),
-)
+        json.dump(data, f, indent=2, ensure_ascii=False)
