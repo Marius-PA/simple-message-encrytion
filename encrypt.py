@@ -10,9 +10,13 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-#x25519 keypair generation and storage
+#abspath = os.path.abspath(__file__)
+#dname = os.path.dirname(abspath)
+#os.chdir(dname)
 
-def generate_x25519_keypair(name):
+# keypair generation and storage
+
+def generate_x25519_keypair(name) -> None:
     private_key = X25519PrivateKey.generate()
     public_key = private_key.public_key()
 
@@ -27,34 +31,35 @@ def generate_x25519_keypair(name):
         format=serialization.PublicFormat.Raw
     )
 
+    data = {
+        "algorithm": "X25519",
+        "name": str(name),
+        "keys": {
+            "private": base64.b64encode(private_bytes).decode("utf-8"),
+            "public": base64.b64encode(public_bytes).decode("utf-8")
+        }
+    }
+
     with open(f"{name}_x25519_private.json", "w") as f:
-        json.dump({"private": base64.b64encode(private_bytes).decode()}, f)
+        json.dump({"algorithm": data["algorithm"], "name": data["name"], "private_key": data["keys"]["private"]}, f, indent=2)
 
     with open(f"{name}_x25519_public.json", "w") as f:
-        json.dump({"public": base64.b64encode(public_bytes).decode()}, f)
-
+        json.dump({"algorithm": data["algorithm"], "name": data["name"], "public_key": data["keys"]["public"]}, f, indent=2)
 #generate_x25519_keypair(name = input("Enter a name for the x25519 key: "))
 
-def load_x25519(name):
-    result = {}
-    try:
-        with open(f"{name}_x25519_private.json") as f:
-            data = json.load(f)
-            result["private"] = base64.b64decode(data["private"])
-    except FileNotFoundError:
-        result["private"] = None
-        with open(f"{name}_x25519_public.json") as f:
-            pub_data = json.load(f)
-            result["public"] = base64.b64decode(pub_data["public"])
-    except FileNotFoundError:
-        result["public"] = None
-    return result
+def generate_aes_key(name) -> None:
+    data = {
+        "algorithm": "AES-256-GCM",
+        "name": str(name),
+        "key": base64.b64encode(os.urandom(32)).decode("utf-8"),
+        "iv": base64.b64encode(os.urandom(16)).decode("utf-8") 
+    }
 
-key = load_x25519(name = input("Enter the name of the x25519 key to load: "))
-print(key["public"])
+    with open(f"{name}_aes256gcm_key.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+#generate_aes_key(name = input("Enter a name for the AES key: "))
 
-
-def generate_ed25519_keypair(name):
+def generate_ed25519_keypair(name) -> None:
 
     # --- PRIVATE KEY (raw bytes) ---
     private_key = Ed25519PrivateKey.generate()
@@ -76,8 +81,8 @@ def generate_ed25519_keypair(name):
         "algorithm": "ed25519",
         "name": str(name),
         "keys": {
-            "private": private_bytes.decode("utf-8"),
-            "public": public_bytes.decode("utf-8")
+            "private": base64.b64encode(private_bytes).decode("utf-8"),
+            "public": base64.b64encode(public_bytes).decode("utf-8")
         }
     }
 
@@ -88,39 +93,69 @@ def generate_ed25519_keypair(name):
         json.dump({"algorithm": data["algorithm"], "name": data["name"], "public_key": data["keys"]["public"]}, f, indent=2)
 #generate_ed25519_keypair(name = input("Enter a name for the ed25519 key: "))
 
-def generate_aes_key(name):
-    data = {
-        "algorithm": "AES-256-GCM",
-        "name": str(name),
-        "key": base64.b64encode(os.urandom(32)).decode("utf-8"),
-        "iv": base64.b64encode(os.urandom(16)).decode("utf-8") 
-    }
+def load_x25519(name) -> dict:
+    result = {}
+    try:
+        with open(f"{name}_x25519_private.json") as f:
+            data = json.load(f)
+            result["private"] = base64.b64decode(data["private"])
+    except FileNotFoundError:
+        result["private"] = None
 
-    with open(f"{name}_aes256gcm_key.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-#generate_aes_key(name = input("Enter a name for the AES key: "))
+    try:
+        with open(f"{name}_x25519_public.json") as f:
+            pub_data = json.load(f)
+            result["public"] = base64.b64decode(pub_data["public"])
+    except FileNotFoundError:
+        result["public"] = None
 
-# Retrive stored keys and ciphertext
+    return result
 
-def retrieve_aes_key(name):
+def load_ed25519(name) -> dict:
+    result = {}
+    try:
+        with open(f"{name}_ed25519_private.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            result["private"] = data["private_key"]
+    except FileNotFoundError:
+        result["private"] = None
+    try:
+        with open(f"{name}_ed25519_public.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            result["public"] = data["public_key"]
+    except FileNotFoundError:
+        result["public"] = None
+
+    return result
+
+# derive shared secret
+
+def derive_shared_secret(name:str, peer_public_key_bytes:bytes) -> None:
+    get_private_key = load_x25519(name = input("Enter the name of your x25519 private key :"))
+    private_key = get_private_key["private"]
+    peer_public_key = ed25519.Ed25519PublicKey.from_public_bytes(peer_public_key_bytes)
+    shared_key = private_key.exchange(peer_public_key)
+    # Perform key derivation.
+
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b'handshake data',
+    ).derive(shared_key)
+
+    with open(f"{name}_shared_key.json", "w", encoding="utf-8") as f:
+        json.dump({"derived_key": base64.b64encode(derived_key).decode("utf-8")}, f, indent=2)
+
+
+# load stored keys and ciphertext
+
+def load_aes_key(name) -> bytes:
     with open(f"{name}_aes256gcm_key.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     return base64.b64decode(data["key"])
 
-def retrieve_ed25519_private_key(name):
-    with open(f"{name}_ed25519_private.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return serialization.load_pem_private_key(
-        data["private_key"].encode("utf-8"),
-        password=None,
-    )
-
-def retrieve_ed25519_public_key(name):
-    with open(f"{name}_ed25519_public.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data["public_key"]
-
-def retrieve_ciphertext(name, only_ciphertext=False):
+def load_ciphertext(name, only_ciphertext=False):
     with open(f"{name}_encrypted_message.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -149,7 +184,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
 
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
 
-    signature = retrieve_ed25519_private_key(keyname).sign(ciphertext)
+    signature = load_ed25519(keyname)["private"].sign(ciphertext)
     print("Signature:", base64.b64encode(signature).decode("utf-8"))
 
     data = {
@@ -159,7 +194,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
         "tag": base64.b64encode(encryptor.tag).decode("utf-8"),
         "associated_data": base64.b64encode(associated_data).decode("utf-8"),
         "signature": base64.b64encode(signature).decode("utf-8"),
-        "singing_public_key": str(retrieve_ed25519_public_key(keyname))
+        "singing_public_key": base64.b64encode(load_ed25519(keyname)["public"]).decode("utf-8")
     }
 
     with open(f"{name}_encrypted_message.json", "w", encoding="utf-8") as f:
@@ -168,7 +203,7 @@ def encrypt(name:str, key:bytes, plaintext:str, associated_data:str):
     return {"iv":iv, "ciphertext":ciphertext, "encryptor":encryptor.tag}
 
 def decrypt(key:bytes):
-    iv, ciphertext, tag, associated_data = retrieve_ciphertext(name = input("Enter the name of the encrypted message to retrieve: "), only_ciphertext=False)
+    iv, ciphertext, tag, associated_data = load_ciphertext(name = input("Enter the name of the encrypted message to retrieve: "), only_ciphertext=False)
 
     decryptor = Cipher(
         algorithms.AES(key),
