@@ -1,0 +1,8 @@
+{
+  "algorithm": "AES-256-GCM",
+  "iv": "L3aJuiVBKESnCFHu",
+  "ciphertext": "fUvBew==",
+  "tag": "+eRGmeMTv1vUF2Fk66Fe+g==",
+  "signature": "XLtsGHFPraXuEenjCfQ8v9ZpC6GM63AMltJcU/zyaBgocg/q1TCp3rX2k8g5kE2QppZyLfeJnGY9Wud7kUSkDA==",
+  "signing_public_key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAh6Wa4iu6hAXv/E/AlQ+ZIfjSYZh/7hoz5Mo/ru7l2qU=\n-----END PUBLIC KEY-----\n"
+}

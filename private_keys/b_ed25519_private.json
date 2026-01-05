@@ -1,0 +1,5 @@
+{
+  "algorithm": "ed25519",
+  "name": "b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIO6vyAUGndbcNU9XLD6bpq0IiiKTaXy1U9df8YMmyHhn\n-----END PRIVATE KEY-----\n"
+}
