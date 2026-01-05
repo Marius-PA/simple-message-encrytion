@@ -1,7 +1,6 @@
-from encrypt import *
+from encrypt_decrypt import *
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-from encrypt import *
 
 class CryptoApp(tk.Tk):
     def __init__(self):

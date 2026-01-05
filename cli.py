@@ -1,4 +1,4 @@
-from encrypt import *
+from encrypt_decrypt import *
 
 while True:
     choose_action = input("\nChoose an action: \n1. Generate ed25519 keypair\n2. Generate x25519 keypair\n3. Derive shared secret\n4. Encrypt message\n5. Decrypt message\n6. Exit\n\n[!] Choice: ")
